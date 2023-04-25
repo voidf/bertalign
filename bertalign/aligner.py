@@ -15,6 +15,8 @@ class Bertalign:
                  margin=True,
                  len_penalty=True,
                  is_split=False,
+                 src_lang=None,
+                 tgt_lang=None
                ):
         
         self.max_align = max_align
@@ -26,8 +28,10 @@ class Bertalign:
         
         src = clean_text(src)
         tgt = clean_text(tgt)
-        src_lang = detect_lang(src)
-        tgt_lang = detect_lang(tgt)
+        if src_lang is None:
+            src_lang = detect_lang(src)
+        if tgt_lang is None:
+            tgt_lang = detect_lang(tgt)
         
         if is_split:
             src_sents = src.splitlines()
@@ -88,6 +92,12 @@ class Bertalign:
             src_line = self._get_line(bead[0], self.src_sents)
             tgt_line = self._get_line(bead[1], self.tgt_sents)
             print(src_line + "\n" + tgt_line + "\n")
+            
+    def yield_sents(self):
+        for bead in (self.result):
+            src_line = self._get_line(bead[0], self.src_sents)
+            tgt_line = self._get_line(bead[1], self.tgt_sents)
+            yield src_line + "\n++++++++++\n" + tgt_line + "\n"
 
     @staticmethod
     def _get_line(bead, lines):

@@ -1,0 +1,4 @@
+aligned/
+__pycache__
+*.pyc
+.vscode
