@@ -1,7 +1,12 @@
 import re
 from sentence_splitter import SentenceSplitter
 
-def clean_text(text):
+import process_en_text
+import process_zh_text
+
+
+def clean_text(text: str) -> str:
+    """把text行间的多个连续空格字符换成一个"""
     clean_text = []
     text = text.strip()
     lines = text.splitlines()
@@ -12,6 +17,7 @@ def clean_text(text):
             clean_text.append(line)
     return "\n".join(clean_text)
     
+
 def detect_lang(text):
     from googletrans import Translator
     translator = Translator(service_urls=[
@@ -24,18 +30,18 @@ def detect_lang(text):
         lang = 'zh'
     return lang
 
+
 def split_sents(text, lang):
     if lang in LANG.SPLITTER:
         if lang == 'zh':
-            sents = _split_zh(text)
+            sents = process_zh_text.start(text).split("\n")
         else:
-            splitter = SentenceSplitter(language=lang)
-            sents = splitter.split(text=text) 
-            sents = [sent.strip() for sent in sents]
+            sents = process_en_text.start(text).split("\n")
         return sents
     else:
         raise Exception('The language {} is not suppored yet.'.format(LANG.ISO[lang]))
     
+
 def _split_zh(text, limit=1000):
         sent_list = []
         text = re.sub('(?P<quotation_mark>([。？！](?![”’"\'）])))', r'\g<quotation_mark>\n', text)
@@ -55,23 +61,36 @@ def _split_zh(text, limit=1000):
 
         return sent_list
         
-def yield_overlaps(lines, num_overlaps):
+def yield_overlaps(lines: list[str], num_overlaps: int) -> str:
     lines = [_preprocess_line(line) for line in lines]
     for overlap in range(1, num_overlaps + 1):
-        for out_line in _layer(lines, overlap):
+        for out_line in _layer(lines, overlap): # 输出num_overlaps * len(lines) 个句子
             # check must be here so all outputs are unique
             out_line2 = out_line[:10000]  # limit line so dont encode arbitrarily long sentences
             yield out_line2
 
-def _layer(lines, num_overlaps, comb=' '):
+def _layer(lines: list[str], num_overlaps: int, comb=' ') -> list[str]:
+    """把临近num_overlaps合到一起，PAD到输出的out和lines等长
+    例：
+        lines = [
+            '1',
+            '2',
+            '3',
+            '4',
+        ]
+        num_overlaps = 3, comb = ' '
+    输出：
+        out = ['PAD', 'PAD', '1 2 3', '2 3 4']
+    """
     if num_overlaps < 1:
         raise Exception('num_overlaps must be >= 1')
-    out = ['PAD', ] * min(num_overlaps - 1, len(lines))
+    out = ['PAD', ] * min(num_overlaps - 1, len(lines)) # 填pad直到和len(lines)相等
     for ii in range(len(lines) - num_overlaps + 1):
         out.append(comb.join(lines[ii:ii + num_overlaps]))
     return out
     
-def _preprocess_line(line):
+def _preprocess_line(line: str) -> str:
+    """把空行换成BLANK_LINE"""
     line = line.strip()
     if len(line) == 0:
         line = 'BLANK_LINE'

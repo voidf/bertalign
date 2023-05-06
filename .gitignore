@@ -1,4 +1,9 @@
-aligned/
 __pycache__
 *.pyc
 .vscode
+aligned/
+pre/
+removal/
+done/
+linevec/
+filter_log.jsonl

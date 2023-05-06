@@ -3,95 +3,88 @@ import numpy as np
 from bertalign import model
 from bertalign.corelib import *
 from bertalign.utils import *
+# lang_list = ["en", "zh", "fr", 'ru', "es"]
+lang_list = ["en", "zh"]
 
 class Bertalign:
-    def __init__(self,
-                 src,
-                 tgt,
-                 max_align=5,
-                 top_k=3,
-                 win=5,
-                 skip=-0.1,
-                 margin=True,
-                 len_penalty=True,
-                 is_split=False,
-                 src_lang=None,
-                 tgt_lang=None
-               ):
-        
+    def __init__(self, row, max_align=5, top_k=3, win=5, skip=-0.1, margin=True, len_penalty=True, is_split=False):
         self.max_align = max_align
         self.top_k = top_k
         self.win = win
         self.skip = skip
         self.margin = margin
         self.len_penalty = len_penalty
-        
-        src = clean_text(src)
-        tgt = clean_text(tgt)
-        if src_lang is None:
-            src_lang = detect_lang(src)
-        if tgt_lang is None:
-            tgt_lang = detect_lang(tgt)
-        
-        if is_split:
-            src_sents = src.splitlines()
-            tgt_sents = tgt.splitlines()
-        else:
-            src_sents = split_sents(src, src_lang)
-            tgt_sents = split_sents(tgt, tgt_lang)
- 
-        src_num = len(src_sents)
-        tgt_num = len(tgt_sents)
-        
-        src_lang = LANG.ISO[src_lang]
-        tgt_lang = LANG.ISO[tgt_lang]
-        
-        print("Source language: {}, Number of sentences: {}".format(src_lang, src_num))
-        print("Target language: {}, Number of sentences: {}".format(tgt_lang, tgt_num))
 
-        print("Embedding source and target text using {} ...".format(model.model_name))
-        src_vecs, src_lens = model.transform(src_sents, max_align - 1)
-        tgt_vecs, tgt_lens = model.transform(tgt_sents, max_align - 1)
+        sents = {}
 
-        char_ratio = np.sum(src_lens[0,]) / np.sum(tgt_lens[0,])
+        for lang in lang_list:
+            sents[lang] = {}
+            cleaned_text = clean_text(row[lang])
+            text_lines = split_sents(cleaned_text, lang)
 
-        self.src_lang = src_lang
-        self.tgt_lang = tgt_lang
-        self.src_sents = src_sents
-        self.tgt_sents = tgt_sents
-        self.src_num = src_num
-        self.tgt_num = tgt_num
-        self.src_lens = src_lens
-        self.tgt_lens = tgt_lens
-        self.char_ratio = char_ratio
-        self.src_vecs = src_vecs
-        self.tgt_vecs = tgt_vecs
+            lines_length = len(text_lines)
+            special_lang = LANG.ISO[lang]
+            print("Source language: {}, Number of sentences: {}".format(special_lang, lines_length))
+            vecs, lens = model.transform(text_lines, max_align - 1)
+            sents[lang]["lines_length"] = lines_length
+            # sents[lang]["special_lang"] = special_lang
+            sents[lang]["vecs"] = vecs
+            sents[lang]["lens"] = lens
+            sents[lang]["text_lines"] = text_lines
+
+            if "en" in sents:
+                sents[lang]["char_ratio"] = np.sum(lens[0,]) / np.sum(sents["en"]["lens"][0,])
+
+
+        self.sents = sents
+   
         
+
     def align_sents(self):
 
-        print("Performing first-step alignment ...")
-        D, I = find_top_k_sents(self.src_vecs[0,:], self.tgt_vecs[0,:], k=self.top_k)
-        first_alignment_types = get_alignment_types(2) # 0-1, 1-0, 1-1
-        first_w, first_path = find_first_search_path(self.src_num, self.tgt_num)
-        first_pointers = first_pass_align(self.src_num, self.tgt_num, first_w, first_path, first_alignment_types, D, I)
-        first_alignment = first_back_track(self.src_num, self.tgt_num, first_pointers, first_path, first_alignment_types)
-        
-        print("Performing second-step alignment ...")
-        second_alignment_types = get_alignment_types(self.max_align)
-        second_w, second_path = find_second_search_path(first_alignment, self.win, self.src_num, self.tgt_num)
-        second_pointers = second_pass_align(self.src_vecs, self.tgt_vecs, self.src_lens, self.tgt_lens,
+        result = {}
+        benchmark_data = self.sents["en"]
+
+        for lang in lang_list[1:]:
+            src = self.sents[lang]
+            print("Performing first-step alignment ...") # 第一次对齐：原句对齐，所以只需要[0,:]
+            D, I = find_top_k_sents(src["vecs"][0,:], benchmark_data["vecs"][0,:], k=self.top_k)
+            first_alignment_types = get_alignment_types(2) 
+            first_w, first_path = find_first_search_path(src["lines_length"], benchmark_data["lines_length"])
+            first_pointers = first_pass_align(src["lines_length"], benchmark_data["lines_length"], first_w, first_path, first_alignment_types, D, I)
+            first_alignment = first_back_track(src["lines_length"], benchmark_data["lines_length"], first_pointers, first_path, first_alignment_types)
+
+            print("Performing second-step alignment ...")
+            second_alignment_types = get_alignment_types(self.max_align)
+            second_w, second_path = find_second_search_path(first_alignment, self.win, src["lines_length"], benchmark_data["lines_length"])
+            second_pointers = second_pass_align(src["vecs"], benchmark_data["vecs"], src["lens"], benchmark_data["lens"],
                                             second_w, second_path, second_alignment_types,
-                                            self.char_ratio, self.skip, margin=self.margin, len_penalty=self.len_penalty)
-        second_alignment = second_back_track(self.src_num, self.tgt_num, second_pointers, second_path, second_alignment_types)
-        
-        print("Finished! Successfully aligning {} {} sentences to {} {} sentences\n".format(self.src_num, self.src_lang, self.tgt_num, self.tgt_lang))
-        self.result = second_alignment
-    
+                                            src["char_ratio"], self.skip, margin=self.margin, len_penalty=self.len_penalty)
+            second_alignment = second_back_track(src["lines_length"], benchmark_data["lines_length"], second_pointers, second_path, second_alignment_types)
+
+            result[lang] = second_alignment
+
+        self.result = result
+
+
+    def create_result(self):
+        result = {}
+        for lang in self.result:
+            result[lang] = ""
+            for bead in (self.result[lang]):
+                src_line = self._get_line(bead[0], self.sents[lang]["text_lines"])
+                tgt_line = self._get_line(bead[1], self.sents["en"]["text_lines"])
+                result[lang]+= src_line + "\n" + tgt_line + "\n \n"
+
+        return result
+
     def print_sents(self):
-        for bead in (self.result):
-            src_line = self._get_line(bead[0], self.src_sents)
-            tgt_line = self._get_line(bead[1], self.tgt_sents)
-            print(src_line + "\n" + tgt_line + "\n")
+        for lang in self.result:
+            for bead in (self.result[lang]):
+                src_line = self._get_line(bead[0], self.sents[lang]["text_lines"])
+                tgt_line = self._get_line(bead[1], self.sents["en"]["text_lines"])
+                print(src_line + "\n" + tgt_line + "\n")
+
             
     def yield_sents(self):
         for bead in (self.result):

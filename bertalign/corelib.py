@@ -333,9 +333,9 @@ def first_pass_align(src_len,
 
     return pointers
 
-def find_first_search_path(src_len,
-                           tgt_len,
-                           min_win_size = 250,
+def find_first_search_path(src_len: int,
+                           tgt_len: int,
+                           min_win_size = 250, # 250可能不是很适合段落对齐
                            percent=0.06):
     """
     Find the window size and search path for the first-pass alignment.
@@ -351,11 +351,12 @@ def find_first_search_path(src_len,
                      One extra row is added in the search_path for the calculation
                      of deletions and omissions.
     """
-    win_size = max(min_win_size, int(max(src_len, tgt_len) * percent))
+    # 超过win_size距离的句子就没有看的必要了，这函数是用来算每个src应该在tgt的什么范围内搜索有可能能够对齐的句子
+    win_size = max(min_win_size, int(max(src_len, tgt_len) * percent)) 
     search_path = []
     yx_ratio = tgt_len / src_len
     for i in range(0, src_len + 1):
-        center = int(yx_ratio * i)
+        center = int(yx_ratio * i) # 0到tgt_len的src_len步线性插值
         win_start = max(0, center - win_size)
         win_end = min(center + win_size, tgt_len)
         search_path.append([win_start, win_end])
@@ -370,7 +371,7 @@ def get_alignment_types(max_alignment_size):
     Returns:
         alignment_types: numpy array.
     """
-    alignment_types = [[0,1], [1,0]]
+    alignment_types = [[0,1], [1,0]] # 1,1 1,2 1,3 ... n-1,n n,n
     for x in range(1, max_alignment_size):
         for y in range(1, max_alignment_size):
             if x + y <= max_alignment_size:
@@ -397,6 +398,6 @@ def find_top_k_sents(src_vecs, tgt_vecs, k=3):
         D, I = gpu_index.search(src_vecs, k)
     else: # CPU version
         index = faiss.IndexFlatIP(embedding_size)
-        index.add(tgt_vecs)
+        index.add(tgt_vecs) # en
         D, I = index.search(src_vecs, k)
     return D, I
