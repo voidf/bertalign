@@ -1,5 +1,5 @@
 from typing import Dict
-from helper import LINEDOT_TOKEN, LINENO_TOKEN
+from helper import match_lineno_seg
 from helper import cat_by_lineno
 from helper import PAGINATION_TOKEN
 import re
@@ -238,7 +238,7 @@ def eliminate_zh_breakline_mainwork(flatten: list[str], near_word_counter: dict[
             continue
         s1 = linebuf[-1]
         s2 = line
-        if re.match(LINEDOT_TOKEN, s2) or re.match(LINENO_TOKEN, s2): # 避免跟有序列表规则冲突
+        if match_lineno_seg(s2): # 避免跟有序列表规则冲突
             linebuf.append(line)
             prvline = line
             continue
@@ -261,7 +261,7 @@ def eliminate_zh_breakline_mainwork(flatten: list[str], near_word_counter: dict[
         #         back_char in DIGITS['zh'] and front_char in string.digits:
         #     linebuf.append(line)
         #     continue
-        if can_concat_two_by_ruleset(s1, s2): # 能成词的，有比较合并
+        if can_concat_two_by_ruleset(s1, s2): # 能成词的，合并
             score += 999
         # 只看两个字接在一起
         # char_stat = near_word.setdefault(front_char, {}).get(back_char, 0)

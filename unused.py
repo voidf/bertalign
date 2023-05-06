@@ -14,7 +14,18 @@ LANG = 'en'
 # VEC_DIR = './linevec/' + LANG
 VEC_DIR = r'C:\Users\Administrator\Documents\parallel_corpus_mnbvc\alignment\bertalign/linevec/' + LANG
 
-
+def filter_leading_and_tail_blank_lines(lines: list[str]) -> list[str]:
+    """去除前导空行和尾随空行（其实应该直接用strip）"""
+    newlines = []
+    for line in lines:
+        line = line.strip()
+        if not line and not newlines: # 去前导空行
+            continue
+        newlines.append(line)
+    while newlines and not newlines[-1]: # 去尾随空行
+        newlines.pop()
+    return newlines
+    
 def main(row):
     Path(VEC_DIR).mkdir(parents=True, exist_ok=True)
     rec = row['record']

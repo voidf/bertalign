@@ -3,7 +3,10 @@ __pycache__
 .vscode
 aligned/
 pre/
+pre2/
 removal/
 done/
+done2/
 linevec/
-filter_log.jsonl
+*.jsonl
+*.log

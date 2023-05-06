@@ -3,8 +3,8 @@ import itertools
 
 import nltk
 from helper import cat_by_lineno
-from helper import read_int
-from helper import LINENO_TOKEN, LINEDOT_TOKEN, PAGINATION_TOKEN
+from helper import match_lineno_seg
+from helper import PAGINATION_TOKEN
 from difflib import SequenceMatcher
 # GLOBAL CONSTANTS
 INDEX_TOKEN = '...'
@@ -39,7 +39,7 @@ def extract_sentences_from_single_file(filetext: list[str]) -> str:
             outputs[-1] += nextline
             # outputs.append(nextline)
             continue
-        if re.match(LINENO_TOKEN, nextline) or re.match(LINEDOT_TOKEN, nextline): # 避免和cat_by_lineno规则冲突
+        if match_lineno_seg(nextline): # 避免和cat_by_lineno规则冲突
             outputs.append(nextline)
             continue
 
