@@ -1,5 +1,6 @@
 import datetime
 from difflib import SequenceMatcher
+import itertools
 import os
 
 from pathlib import Path
@@ -57,12 +58,12 @@ def drop_pagination_header_and_footer(row: DatasetDict):
             set() for _ in pages]  # 每个用来装页眉的token，仅用来判断疑似页码的数字
 
         for pageid, page in enumerate(pages):
-            lines = page.strip().split('\n')
+            lines = page.strip().splitlines()
             page = pages[pageid] = '\n'.join(lines)
 
             # 页眉只最多取前100字符
-            for lineid, line in enumerate(page[:HEADER_SCAN_LIMIT].split('\n')):
-                for token in line.split(' '):
+            for lineid, line in enumerate(page[:HEADER_SCAN_LIMIT].splitlines()):
+                for token in line.split():
                     # if len(token) < 2: # 单字符的token太危险，不能要
                     # continue
                     page_token_slots[pageid].add(token)
@@ -106,7 +107,7 @@ def drop_pagination_header_and_footer(row: DatasetDict):
             newlines = []
             done = False  # 我们只删连续一段开头的，这样写来防止删掉类似the la de这些常见单词
 
-            for line in header.split('\n'):
+            for line in header.splitlines():
                 # if 'A/CN.9/WG.VI/WP.22/Add.1' in line and lang == 'zh':
                 #     print('break')
                 # else:
@@ -114,6 +115,7 @@ def drop_pagination_header_and_footer(row: DatasetDict):
                 # # 行近似匹配
                 line = line.strip()
                 if not line or done:  # 空行不管，先照旧插入newlines
+                    # if line: # 这行用来管空行，即丢掉空行
                     newlines.append(line)
                     continue
 
@@ -172,6 +174,14 @@ def drop_pagination_header_and_footer(row: DatasetDict):
             pages[pageid] = ('\n'.join(newlines) + body).strip()
         row[lang] = PAGINATION_TOKEN.join(pages)  # 放回row，统一格式，之后用别的函数处理合页与成段
 
+def remove_duplicate_breakline(pages: list[str]):
+    flatten = list(line.strip() for line in itertools.chain(*[page.splitlines() for page in pages]))
+    outputs = []
+    for i in flatten:
+        if not i:
+            continue
+        outputs.append(i)
+    return '\n'.join(outputs)
 
 # flg = False
 def debug(row: DatasetDict):
@@ -180,24 +190,27 @@ def debug(row: DatasetDict):
     #     flg = True
     # if flg == False:
     #     return
+    if row['record'] != '432027':
+        return
     rec = row['record']
     drop_pagination_header_and_footer(row)
     for lang in LANGS:
-        if lang != 'zh':
-            row[lang] = process_en_text.start(row[lang])
-        else:
-            row[lang] = process_zh_text.start(row[lang])
+        row[lang] = remove_duplicate_breakline(row[lang].split(PAGINATION_TOKEN))
+    #     if lang != 'zh':
+    #         row[lang] = process_en_text.start(row[lang])
+    #     else:
+    #         row[lang] = process_zh_text.start(row[lang])
     dump_row(row)
-    try:
-        ba = Bertalign(row, is_splited=True, split_to_sents=True, log_func=align_logger)
-        ba.align_sents()
-        result = ba.create_result()
-        dump_align_result_to_file(row['record'], result)
-    except:
-        with open(my_path(ERROR_LOG), 'a', encoding='utf-8') as f:
-            json.dump({'time': str(datetime.datetime.now()),
-                      'record': rec, 'err': traceback.format_exc()}, f)
-            f.write('\n')
+    # try:
+    #     ba = Bertalign(row, is_splited=True, log_func=align_logger)
+    #     ba.align_sents()
+    #     result = ba.create_result()
+    #     dump_align_result_to_file(row['record'], result)
+    # except:
+    #     with open(my_path(ERROR_LOG), 'a', encoding='utf-8') as f:
+    #         json.dump({'time': str(datetime.datetime.now()),
+    #                   'record': rec, 'err': traceback.format_exc()}, f)
+    #         f.write('\n')
 
 
 def debug_init():

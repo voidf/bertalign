@@ -10,3 +10,5 @@ done2/
 linevec/
 *.jsonl
 *.log
+done*
+pre*

@@ -14,11 +14,12 @@ LANGS = LANGS_WITHOUT_AR
 
 WORKDIR_ABSOLUTE = r'C:\Users\Administrator\Documents\parallel_corpus_mnbvc\alignment\bertalign'
 
-PREPROCESS_DIR = 'pre2'
-ALIGNED_DIR = 'done2'
-FILTER_LOG = 'filter_log.jsonl'
-ERROR_LOG = 'errors_log.jsonl'
-ALIGN_LOG = 'align_log.jsonl'
+easy_version = '5'
+PREPROCESS_DIR = f'pre{easy_version}'
+ALIGNED_DIR = f'done{easy_version}'
+FILTER_LOG = f'filter_log{easy_version}.jsonl'
+ERROR_LOG = f'errors_log{easy_version}.jsonl'
+ALIGN_LOG = f'align_log{easy_version}.jsonl'
 
 def cat(*args): 
     return '/'.join(args)
@@ -200,6 +201,7 @@ LINENO_SEG_TOKENS = [
     (re.compile(r'^\(\d{1,3}\) '), read_int), # 有序列表，全括号数字 (1)
     (re.compile(r'^[A-Z]\. '), lambda x: read_en_letter(x, 'A')), # 有序列表，大写英文标号 A. 
     (re.compile(r'^[一二三四五六七八九十]{1,3}、'), read_chinese), # 汉字有序列表 一、 
+    (re.compile(r'^[一二三四五六七八九十]{1,3}\. '), read_chinese), # 汉字有序列表 一. 
     (re.compile(r'^\([一二三四五六七八九十]{1,3}\) '), read_chinese), # 第二类汉字有序列表 (一)
 ]
 
