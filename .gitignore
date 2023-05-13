@@ -12,3 +12,8 @@ linevec/
 *.log
 done*
 pre*
+data/
+*.secret
+*.arrow
+dataset_info.json
+state.json

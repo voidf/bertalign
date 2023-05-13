@@ -247,3 +247,65 @@ SPEAKER_TOKEN = re.compile(r'^[A-Z].{2,25}( \(.*?\))?: ')
 INFO_PAGE_TOKEN = re.compile(r'United Nations\s.*?Corrections will be issued after the end of the session in a consolidated corrigendum\.', flags=re.M | re.S)
 INFO_PAGE_TOKEN2 = re.compile(r'United Nations\s.*?Corrected records will be reissued electronically on the Official Document System of the United Nations \(http://documents\.un\.org\)\.', flags=re.M | re.S)
 INFO_PAGE_TOKEN3 = re.compile(r'This record contains the text of speeches delivered in English.*?Corrected records will be reissued electronically on the Official Document System of the United Nations \(http://documents\.un\.org\)\.', flags=re.M | re.S)
+
+def hacked_push_to_hub(
+    self,
+    # buffer,
+    repo_id,
+    private: Optional[bool] = False,
+    token: Optional[str] = None,
+    branch: Optional[None] = None,
+    max_shard_size: Optional[Union[int, str]] = None,
+    num_shards: Optional[Dict[str, int]] = None,
+    embed_external_files: bool = True,
+):
+
+    from huggingface_hub import HfApi
+    from datasets.splits import NamedSplit, Split, SplitDict, SplitInfo
+    from datasets import config
+    from datasets.utils import logging
+    from datasets.download import DownloadConfig
+    from datasets.utils.file_utils import _retry, cached_path, estimate_dataset_size
+    from datasets.utils.metadata import DatasetMetadata
+
+    from datasets.info import DatasetInfo, DatasetInfosDict
+    from datasets.utils.hub import hf_hub_url
+
+    # for split in self.keys():
+    dataset_nbytes = self._estimate_nbytes()
+
+    # if split is None:
+    split = str(self.split) if self.split is not None else "train"
+
+    # sp = self[split]
+
+    
+    # num_shards = num_shards or 1
+    num_shards = 1
+    sh = self.shard(num_shards, 0, contiguous=True) # TODO: more than 1
+
+    def path_in_repo(_index, shard):
+        return f"data/{split}-{_index:05d}-of-{num_shards:05d}-{shard._fingerprint}.parquet"
+
+    with open(my_path(path_in_repo(0, sh)), 'wb') as fsh:
+        sh.to_parquet(fsh)
+        # fsh.seek(0)
+        uploaded_size = fsh.tell()
+
+    organization, dataset_name = repo_id.split("/")
+    info_to_dump = self.info.copy()
+    info_to_dump.download_checksums = None
+    info_to_dump.download_size = uploaded_size
+    info_to_dump.dataset_size = dataset_nbytes
+    info_to_dump.size_in_bytes = uploaded_size + dataset_nbytes
+    info_to_dump.splits = SplitDict(
+        {split: SplitInfo(split, num_bytes=dataset_nbytes, num_examples=len(self), dataset_name=dataset_name)}
+    )
+
+
+    # push to README
+    dataset_metadata = DatasetMetadata()
+    DatasetInfosDict({"default": info_to_dump}).to_metadata(dataset_metadata)
+
+    readme_content = f'# Dataset Card for "{repo_id.split("/")[-1]}"\n\n[More Information needed](https://github.com/huggingface/datasets/blob/main/CONTRIBUTING.md#how-to-contribute-to-the-dataset-cards)'
+    return dataset_metadata._to_readme(readme_content).encode()

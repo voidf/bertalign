@@ -5,7 +5,7 @@ import os
 
 from pathlib import Path
 import traceback
-from datasets import load_dataset
+from datasets import load_dataset, load_from_disk
 from bertalign import Bertalign
 import process_zh_text
 import process_en_text
@@ -17,11 +17,13 @@ from datasets.dataset_dict import DatasetDict
 ##
 from sentence_transformers import SentenceTransformer
 
-from helper import dump_row, ensure_dirs, make_filter_log, my_path, align_logger
+from helper import dump_row, ensure_dirs, make_filter_log, my_path, align_logger, read_secret, use_proxy
 from helper import PAGINATION_TOKEN, LANGS
 from helper import dump_align_result_to_file
 from helper import PREPROCESS_DIR, ALIGNED_DIR, FILTER_LOG, ERROR_LOG
 
+# 禁用log
+make_filter_log = lambda *x: None
 
 HEADER_SCAN_LIMIT = 100
 DIGITS_PATTERN = re.compile('^\d+$')
@@ -190,17 +192,24 @@ def debug(row: DatasetDict):
     #     flg = True
     # if flg == False:
     #     return
-    if row['record'] != '432027':
-        return
+    # if row['record'] != '432027':
+        # return
     rec = row['record']
     drop_pagination_header_and_footer(row)
     for lang in LANGS:
         row[lang] = remove_duplicate_breakline(row[lang].split(PAGINATION_TOKEN))
-    #     if lang != 'zh':
-    #         row[lang] = process_en_text.start(row[lang])
-    #     else:
-    #         row[lang] = process_zh_text.start(row[lang])
-    dump_row(row)
+        # if lang != 'zh':
+        #     row[lang] = process_en_text.start(row[lang])
+        # else:
+        #     row[lang] = process_zh_text.start(row[lang])
+    # row[''] = {
+        
+    # }
+    return row
+
+# def dump_mapping(row):
+    # dump_row(row)
+
     # try:
     #     ba = Bertalign(row, is_splited=True, log_func=align_logger)
     #     ba.align_sents()
@@ -239,12 +248,60 @@ def debug_init():
 if __name__ == "__main__":
     # os.environ['HSA_OVERRIDE_GFX_VERSION'] = '10.3.0'
     begin_time = datetime.datetime.now()
+    # from helper import hacked_push_to_hub
     debug_init()
-    # dataset = load_dataset("ranWang/UN_Historical_PDF_Article_Text_Corpus", split='randomTest')
     dataset = load_dataset("ranWang/UN_PDF_TEXT_DATA_TEST", split='randomTest')
-    dataset.map(debug)
+    dataset = dataset.map(debug, num_proc=8)
+    dataset.map(dump_row)
+    # print(dataset)
+    dataset.save_to_disk(my_path())
+
+    use_proxy()
+    # dataset = load_from_disk(my_path())
+
+    # proxy_url = 'http://localhost:7890'
+    # os.environ["HTTP_PROXY"] = proxy_url
+    # os.environ["HTTPS_PROXY"] = proxy_url
+    hftoken = read_secret('hf_token')
+    # dataset.push_to_hub('bot-yaya/UN_PDF_SUBSET_FORM_BY_RULESET', token=hftoken, max_shard_size='32MB')
+    dataset.push_to_hub('bot-yaya/UN_PDF_SUBSET_PREPROCESSED', token=hftoken, max_shard_size='32MB')
+    # with open(my_path('data', 'README.md'), 'wb') as rm:
+        # rm.write(readme)
+
+    # sh = dataset.shard(1, 0, contiguous=True)
+    # num_shards = 1
+    # def path_in_repo(_index, shard):
+    #     return f"data/randomTest-{_index:05d}-of-{num_shards:05d}-{shard._fingerprint}.parquet"
+
+    # with open(my_path(path_in_repo(0, sh)), 'wb') as fsh:
+    #     sh.to_parquet(fsh)
+
     # print(len(VECTORS))
     # make_marked_file()
     # visualize()
     end_time = datetime.datetime.now()
     print('Time elapsed:', end_time - begin_time)
+
+
+
+"""
+I want you to split the following text paragragh by paragragh, 
+but please join the adjacent lines if it can form a meaningful paragragh and left the breakline if it can split the paragragh,
+
+I need your help to solve a breakline elimination problem,
+given a text exported from PDF, 
+some breakline may separate a meaningful paragragh unexpectly,
+in this case, you should join adjacent lines if they can form a meaningful paragraph and replace the breakline symbol as space.
+try to filter noises and keep as many meaningful info as you can, 
+leave the indexing information as it is, 
+do not add more word to the source input text, 
+format the resulting paragraphs as python list.
+
+are you ready for this task?
+
+
+my input can contain multiple batches,
+so some of the trailing lines may come from the next paragraph, in this case, 
+you should memorized them and join them to my next input batch.
+
+"""

@@ -2,6 +2,7 @@ from collections import namedtuple
 import itertools
 import json
 import re
+from typing import Dict, Optional, Union
 import Levenshtein
 import string
 from pathlib import Path
@@ -280,3 +281,273 @@ def filter_duplicated_whitespaces(src: str) -> str:
     elif space:
         buf.append(space)
     return ''.join(buf)
+
+def use_proxy():
+    import socks
+    import socket
+    socks.set_default_proxy(socks.SOCKS5, '127.0.0.1', 7890)
+    socket.socket = socks.socksocket
+
+def read_secret(relative_path):
+    relative_path += '.secret'
+    try:
+        with open(my_path(relative_path), 'r') as f:
+            return f.read().strip()
+    except:
+        print(f'please put your token to {relative_path} in the root dir specify in WORKDIR_ABSOLUTE')
+        print('current WORKDIR_ABSOLUTE:', WORKDIR_ABSOLUTE)
+        raise
+
+
+def chat(prompt: str):
+    prompt_engineering = '''I need your help to solve a breakline elimination problem,
+given a text exported from PDF, 
+some breakline may separate a meaningful paragragh unexpectly,
+in this case, you should join adjacent lines if they can form a meaningful paragraph and replace the breakline symbol as space.
+try to filter noises and keep as many meaningful info as you can, 
+leave the indexing information as it is, 
+do not add more word to the source input text, 
+do not answer any other word except the task output,
+format the resulting paragraphs as python list.
+Here is the input text:
+
+'''
+    import requests
+    k = read_secret('openai_token')
+    inputs = prompt_engineering + prompt
+    tokens = len(inputs.split())
+    print('tokens len:', tokens)
+    r = requests.post("https://api.openai.com/v1/chat/completions",
+            headers={
+                "Content-Type": "application/json",
+                "Authorization": "Bearer " + k
+            },
+            json={
+                # "model": "text-davinci-003",
+                "model": "gpt-3.5-turbo",
+                # "model": "gpt-4",
+                "messages": [{"role": "user", "content": inputs}],
+                "temperature": 0.6, 
+                "max_tokens": 4000 - tokens * 2
+            }
+        )
+    print(r.json())
+    with open(my_path('chatgptoutputs.jsonl'), 'a', encoding='utf-8') as f:
+        f.write(r.text + '\n')
+    return r.json()['choices'][0]['message']['content']
+    
+
+if __name__ == "__main__":
+    example = """United Nations A/AC.105/799
+General Assembly
+Distr.: General
+4 December 2002  Original: English
+V.02-60213 (E)    23202    24202
+*0260213* Committee on the Peaceful    Uses of Outer Space
+Report on the Third United  Nations/International Academy
+of Astronautics Workshop on Sm all Satellites at the Service
+of Developing Countries: Beyond Technology Transfer
+(Houston, United States of America, 12 October 2002)
+Contents
+Paragraphs Page
+I. Introduction ......................................................... 1-6 2
+A. Background and objectives ........................................ 1-4 2
+B. Attendance ..................................................... 5-6 2
+II. Summary of presentations ............................................. 7-21 3
+III. Conclusions and recommendations ...................................... 22-27 6
+I. Introduction
+A. Background and objectives
+1. The Third United Nations Conference on  the Exploration and Peaceful Uses of
+Outer Space (UNISPACE III) recommended, in ter alia, that the joint development,
+construction and operation of a variety of small satellites offering opportunities to
+develop indigenous space industry should be undertaken as a suitable project for enabling space research, technology demons trations and related applications in
+communications and Earth observation.
+1 Additional recommendations emanated
+from the activities of the Technical Forum held at UNISPACE III.2 In accordance
+with those recommendations, the Office for Outer Space Affairs of the Secretariat has substantially extended its existi ng cooperation with the Subcommittee on
+Small Satellites for Developing Nations  of the International Academy of
+Astronautics (IAA).
+3
+2. At its forty-fourth session, in 2001, the Committee on the Peaceful Uses of
+Outer Space endorsed the programme of workshops, training courses, symposiums and conferences planned for 2002.
+4 Subsequently, the General Assembly, in its
+resolution 56/51 of 10 December 2001, endor sed the United Nations Programme on
+Space Applications for 2002.
+3. At the 1999 meeting of the IAA Subcommittee, it was agreed that the fifty-
+first International Astronauti cal Congress, which was to be held in Rio de Janeiro,
+Brazil, from 2 to 6 October 2000, would be an ideal opportunity to review the status and advancement of programmes in Latin Am erica. It was further agreed that the
+Workshop should be open to participants from other regions, but that the situation in Latin America would be used as an example of how developing countries could benefit from small satellites and that it should form the core of the discussion. The report of the first United Nations/IAA Workshop (A/AC.105/745) was submitted to the Scientific and Technical Subcommittee at its thirty-eighth session, in 2001. Based on the positive response from particip ants and from States members of the
+Committee, it was decided that the second Workshop, to be held in 2001, should encourage the development of small satellite technology in Africa. The Workshop was held in Toulouse, France, on 2 October 2001 and the corresponding report (A/AC.105/772) was submitted to the Scientific and Technical Subcommittee at its thirty-ninth session in 2002.
+4. The United Nations/IAA Workshop on Small Satellites at the Service of
+Developing Countries: Beyond Technology Transfer was held in Houston, United States of America, on 12 October 2002. It was the third Workshop organized jointly by the Office for Outer Space Affairs and the IAA Subcommittee on Small Satellites
+for Developing Nations within the framework of the International Astronautical Congress.
+B. Attendance
+5. The Workshop was an integral part  of the World Space Congress and was
+attended by as many as 85 registered Congress participants. Many of those attending the Workshop had also attended the Unite d Nations/International Astronautical
+Federation Workshop on Space Solutions for Global Problems: Building Working
+Partnerships with All Stakeholders in Human Security and Development (A/AC.105/798). The sponsors of the workshop (the United Nations Educational, Scientific and Cultural Orga nization, the European Space Agency and the National
+Aeronautics and Space Administration (NASA) of the United States provided financial support to selected participants from developing countries.
+6. One of the objectives of the Workshop was to review the utilization of small
+satellites not only for the purpose of tec hnology transfer, but also as a useful
+contribution to the development of countri es and to scientific or application
+programmes; the Workshop was conducted in the light of the recommendations of the previous workshops. The Workshop was al so attended by several participants of
+previous workshops who provided valuable continuity and were able to assess the progress that had been made during the series of workshops.
+II. Summary of presentations
+7. In a brief introduction, the Workshop co-chairmen gave an overview of the
+results achieved at workshops held at UNISPACE III, in Rio de Janeiro and in Toulouse. Seven papers were  then presented and discussed, most of which dealt
+with applications in the field of remote sensing and Earth observation.
+8. The first paper dealt with AlSAT-1,  which was the first Algerian national
+satellite. Developed in partnership with the United Kingdom of Great Britain and Northern Ireland as part of a know-how and technology transfer programme, the satellite was to be the first to be launched by several countries as part of a disaster monitoring constellation (DMC). The cooperative programme involved Algeria, China, Nigeria, Thailand, Turkey, the United Kingdom and Viet Nam. Satellites from the seven countries were to be put into the same orbit in order to form the first international constellation de dicated to monitoring natural and man-made disasters.
+They would enable the seven countries to have daily access to global images for disaster mitigation, national remote se nsing applications, and space commercial
+exploitation and would facilitate interna tional cooperation be tween developed and
+developing countries.
+9. As part of DMC, AlSAT-1 would co ntribute to mitigating natural and man-
+made disasters through early warning, event monitoring and analysis. When the satellite was not being used for DMC purposes, it would be monitored and
+controlled for national applications. Algeria was a big country, the second largest on the African continent, and had an ar ea greater than 2.5 million square
+kilometres (km). It needed to monitor agricultural land use, industrial and marine pollution and support cartography for infrastructure such as road and rail networks which could best be done by the use of satellites. Another specific regional
+application was the monitoring of the accel erating desertification that was occurring
+on the boundaries of the Sahara.
+10. AlSAT-1was the first satellite to be launched as part of the space programme
+that Algeria intended to carry out over the following decade. The programme was designed to support Algeria’s development needs and for purposes of education, marine and atmospheric pollution, telecommunications, utilization of natural resources, weather and climate applications, urban and rural infrastructure, and land
+use management and to assist in resolving other local-level resource problems. As
+part of a sustainable space programme, the Algerian Centre national des techniques
+spatiales was already planning the launc h of a second spacecraft, AlSAT-2.
+11. Nigeria was also developing its first mi crosatellite, NigeriaSAT-1, as part of
+DMC. The satellite was part of a Nati onal Space Research and Development
+Programme that was being implemente d by the National Space Research and
+Development Agency (NASRDA). The programme constituted an important
+component of the national strategy for socio-economic development through space applications. Among the Agency’s objectives were the development of indigenous capabilities in the major areas of space sc ience and technology and the use of those
+capabilities as tools for natural resource ma nagement, infrastructure development,
+environmental monitoring and sustainable development. The paper presented the policy, objectives and institutional fram ework, as well as the mandate of the
+Agency. The NASRDA programme was built around the following themes: development of human resources and capac ity-building; management of natural
+resources; study of the Earth and its environment; defence, national security and law enforcement; space communication applica tions; and education and training. The
+promotion of international cooperation was iden tified as an integral part of the space
+programme in Africa, in par ticular within the Economic Community of West African
+States (ECOWAS).
+12. The NigeriaSAT-1 project was being developed in cooperation with the United
+Kingdom and included technology transfer and training components. Further plans to develop a communication satellite, Ni geriaSAT-2, were in progress; it was
+recognized that ineffective communications re presented one of the greatest barriers
+to socio-economic development and NigeriaSAT-2 would be designed to contribute to providing an adequate telecommunications system throughout Nigeria and regional coverage to ECOWAS countries.
+13. The third paper, from South Africa, dealt with the digital divide in Africa. A
+core objective of the New Partnership for African Development, a mandated programme of the African Union, was to gi ve impetus to Africa’s development by
+bridging existing gaps in priority sectors, one of which was information and communication technologies and the pressing need to bridge the digital divide. The paper expressed the view that small and micro satellites provided one of the most appropriate instruments for meeting that objective; in fact, several countries had
+already launched or were developing sma ll satellites (Algeria and Nigeria, as
+presented at the Workshop; South Afri ca with the SUNSAT satellite), which
+provided a basis for further developments.
+14. The successful launch and opera tion of the SUNSAT micro satellite
+demonstrated that the technology base for Earth-observation applications, environmental, agricultural and agro-meteorological, could be established using a very small, high-value satellite platform. It was proposed to develop an African
+resource management (ARM) constellation through an African cooperative programme. The application of those satel lites could contribute to  meeting the needs
+of African countries in a sustainable manner and to addressing problems such as the “brain drain”, lack of access to space technology and data, poverty and food insecurity, disasters, poor infrastructure, refugees and unsustainable development. With the current satellite developments , space engineering capabilities were
+becoming accessible within Africa itself and a commitment to long-term research
+and development could only be sustained by repeatable development and utilization
+of technology and know-how. The establishment of an ARM constellation would contribute to the fulfilment of one of the key aims of the New Partnership for African Development.
+15. The fourth paper, from Indonesia, pres ented the design of a new micro satellite
+for resource monitoring, Ganesyasat-CXM. The satellite would have equatorial low-Earth orbit for optimum temporal resolution for the main environmental monitoring mission.
+16. Indonesia was a maritime country, comprising over 14,000 islands spread
+along one eighth of the equator, with some 81,000 km of coastline, approximately 1.9 million square km of land, 3.1 milli on square km of territorial sea and
+2.7 million km of exclusive economic zone. It s maritime status was a driving factor
+for development activities and business ventures and those, together with its need to manage a wealth of natura l resources, both terrestria l and marine, as well as
+agriculture and forestry, justified use of space technology.
+17. The plan to launch a satellite was therefore conceived on the premise that
+space technology could make significant c ontributions to solving problems related
+to national economic development. It would be used for the education of students in spacecraft design and manuf acturing. When in orbit, it would contribute to
+environmental observations and geogra phical information and would support
+scientific studies associated with meteorological and volcanic activity surveillance.
+18. The fifth paper concerned the Arge ntine SAC-C (Satélite de Aplicaciones
+Científicas) Satellite, which was an in ternational Earth-observing satellite
+developed by the Argentina Comisión Nacional de Actividades Espaciales in partnership with the United States, with additional support in instrumentation and
+satellite development from Brazil, Denmar k, France and Italy. The satellite was
+entirely built and assembled in Argentina. There were 10 instruments on board SAC-C that carried out studies on the ev aluation and evolution of desertification
+processes, the identification and prediction of agricultural production, the monitoring of flood areas, as well as studies in coastal and freshwater areas. Additional scientific objectives were to monitor the condition and dynamics of the terrestrial and marine biosphere and environment, to contribute to a better understanding of the Earth’s magnetic field and related Sun-Earth interactions and
+to develop and utilize new Global Positioni ng System (GPS) techniques to measure
+atmospheric phenomena on a global scal e for the study of weather, seasonal,
+interannual and long-term climate change.
+19. The SAC-C satellite was launched in November 2000 and was part of the
+“Morning Constellation” along with three United States satellites: Landsat-7, EO-1 and Terra. The creation of such a cons tellation permitted the quasi-simultaneous
+acquisition from the four satellites of im ages of various geometric and spectral
+resolutions in different spectral bands, the carrying out of autonomous navigation experiments and the testing of the G PS satellite constell ation capabilities for
+atmospheric studies, navigation and attitude and orbit control. The main application
+areas were hydrology, desertification, urba n planning, precision farming, forestry,
+ecology, atmospheric and ionospheric studies and cloud properties. Using data from the four satellites, interesting results were obtained on land use, native forest
+resources and floods and fires, the latter being the most important potential
+hazardous events in Argentina.
+20. The sixth paper, from Brazil, presen ted the novel application of the Brazilian
+data collection satellites SDC 1 and 2 to pr ecision farming of orange crops. For that
+application, the data collecting platform s located on the ground would collect data
+related to soil moisture and the height of the fruit, which were important parameters
+for the flowering process and consequently the production of fruit itself; those data would be transmitted to the user via the SCD satellites. Such an application was valid only for perennial crops, but the app lication could also be extended to other
+types of agricultural data for government or private use.
+21. The final paper presented a small scie ntific satellite project on space weather
+monitoring, to be developed jointly by Brazil and the Russian Federation. The Russian Federation had had experience in th at area with the Interball series of
+satellites. A joint Russian-Ukrainian mission combining a Russian Interball satellite
+and a Ukrainian Prognoz satellite was planne d. Brazil could provide a third satellite
+on a highly elliptical orbit. By using the cons tellation of satellites in different orbits,
+it would be possible to monitor interplanetary and magnetospheric phenomena with variable spatial and temporal characteristics. It was expected that such data could be used to improve space weather forecasting and monitoring.
+III. Conclusions and recommendations
+22.  The Workshop clearly demonstrated, once again, that there were tremendous
+spin-offs to be gained from introducin g space activities through a small satellite
+programme.
+23. The participants of the Workshop recognized that small satellites were a useful
+tool for acquiring and developing tech nology and contributing to education and
+training. The Workshop stressed the importance of placing the main focus on applications that provide sustainable eco nomic benefits for developing countries.
+24. In the presentations it was emphasized that practical results had already
+demonstrated that small satellites were effective in addressing regional problems.
+New programmes had been presented and were  expected to provide benefits such as
+those arising from remote sensing, especially  in such fields as disaster mitigation,
+agriculture, desertification, forest mon itoring and infrastructure development.
+25. The participants also recognized that small satellit e projects were promoting
+through bilateral or multilateral agreemen ts international cooperation within a
+region or worldwide. The Workshop recognized that small satellite projects could result in fruitful cooperation between different countries in the planning, implementation and maintenance of a conste llation of satellites, as well as in the
+effective utilization of the data acquired. The participants recognized that such an approach could be a useful means of sharing satellite development cost and
+information data.
+26. The Workshop recognized that, within a country, a small satellite programme
+could stimulate interest in science and technology, enhance quality of life and the
+quality of education, promote research an d development and resu lt in better linkages
+between government agencies, educational institutions and industries. The
+participants therefore emphasized the need for greater awareness among the public
+and among decision makers of the benefits of space programmes.
+27. The participants of the Workshop recognized that the proposals made during
+UNISPACE III were fully applicable, but th ey made or reconfirmed the following
+additional conclusions and recommendations:
+(a) The Workshop recognized that avenues of international cooperation
+should continue to be explored in order to foster the use of small satellite systems for the benefit of developing countries, including through the promotion of regional projects. For that purpose, the Workshop recommended that coordinated action be continued to identify significant problems th at were common to different countries
+in a region and that could be addressed with the help of small satellite technology. The Workshop also recommended that partnerships be developed between regions with common needs, such as the equatorial regions of different continents;
+(b) Efforts had been made to develop space systems devoted to improving
+the quality of life in developing countries. To provide maximum economic and social benefits to the populations of such countries, the Workshop recommended that programmes be established in such a manner as to ensure continuity and sustainability;
+(c) The Workshop highlighted, in particular, the growing importance of
+Earth observation programmes for developi ng countries and the benefits of
+international cooperative efforts. The Workshop therefore recommended that long-term strategic programmes be developed to  ensure the sustainable acquisition and
+processing of the data needed for monitori ng the environment and natural resources,
+for the mitigation of man-made or natural di sasters, as well as for decision-making;
+(d) The Workshop recognized the benefits of small satellite programmes in
+the acquisition, development and application of space science and technology, and the associated development of a knowledge base and industrial capacity. The Workshop therefore recommended that space activities be an integral part of any national programme devoted to the acqu isition and development of technology and
+capacity-building;
+(e) The Workshop confirmed that it recognized the importance of space
+development in education curricula, especially for motivating and training students. In line with the recommendations of UNISPACE III, the Workshop recommended that each country recognize the important role that space assets could play in education and the need to incorporate space science and technology in curricula;
+(f) Finally, the Workshop emphasized the need to develop among the general
+public as well as among decision makers an awareness of the potential benefits of space technology applications. In particular, it recognized the important role that a
+dedicated organization or agency could play in the definition and implementation of a space programme. The Workshop recommended that every country or group of countries consider the attainment of a minimum level of space capabilities as they could be invaluable in enhancing socio-economic development and the quality of life of populations.
+Notes
+1  Report of the Third United Nations Conference on the Exploration and Peaceful Uses of Outer
+Space, Vienna, 19-30 July 1999  (United Nations publication, Sales No. E.00.I.3), chap. I,
+resolution 1, annex, para. 32 (b).
+2  Ibid., annex III.
+3  The purpose of the IAA Subcommittee on Small Satellites for Developing Nations is to assess
+the benefits of small satellites for developing countries and to develop awareness on the subject
+in both developed and developing countries. The IAA Subc ommittee publishes its findings and
+disseminates relevant informati on through workshops and symposiu ms. In order to realize its
+goals, the IAA Subcommittee c ooperates with: the United Nati ons and its Committee on the
+Peaceful Uses of Outer Space; the Internati onal Astronautical Federa tion and its Committee for
+Liaison with International Orga nizations and Developing Nations ; and the International Space
+University.
+4  Official Records of the General Assembly, Fifty-seventh Session, Supplement No. 20  (A/57/20),
+para. 54.""".splitlines()
+
+    use_proxy()
+    for i in range(3):
+        chat('\n'.join(example[i*20:i*20+40]))
+    # chat('\n'.join(example[0:20]))
+    # chat('\n'.join(example[10:30]))
+    # chat('\n'.join(example[30:40]))
+    # chat('\n'.join(example[40:50]))
+
