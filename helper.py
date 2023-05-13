@@ -292,7 +292,7 @@ def use_proxy():
 def read_secret(relative_path, hint=''):
     relative_path += '.secret'
     abs_path = my_path(relative_path)
-    if not os.path.exist(abs_path):
+    if not os.path.exists(abs_path):
         cmd = input(f'[{hint} {relative_path}] The secret file is required, your input will be saved in {abs_path}. \nNow please input:')
         with open(abs_path, 'w', encoding='utf-8') as f:
             f.write(cmd)
@@ -309,21 +309,36 @@ def read_secret(relative_path, hint=''):
 
 
 def chat(prompt: str):
-    prompt_engineering = '''I need your help to solve a breakline elimination problem,
-given a text exported from PDF, 
-some breakline may separate a meaningful paragragh unexpectly,
-in this case, you should join adjacent lines if they can form a meaningful paragraph and replace the breakline symbol as space.
+    debug_prompt_engineering = '''I need your help to solve a breakline elimination problem,
+given some text exported from PDF, 
+some breakline may split the text as meaningful paragraghs but others could separate them unexpectly,
+in this case, you should join adjacent lines if they can form a meaningful paragraph and replace the breakline symbols as spaces.
 try to filter noises and keep as many meaningful info as you can, 
-leave the indexing information as it is, 
-do not add more word to the source input text, 
+leave the indexing information and some lines that can not form a paragragh as it is, 
+do not add more word to the input text, 
 do not answer any other word except the task output,
-format the resulting paragraphs as python list.
+format the resulting paragraphs as python list, and make sure it can use by python's eval with no error.
 Here is the input text:
 
 '''
+    production_prompt_engineering = '''I need your help to solve a breakline elimination problem,
+given some text exported from PDF, 
+some breakline may split the text as meaningful paragraghs but others could separate them unexpectly,
+in this case, you should join adjacent lines if they can form a meaningful paragraph and replace the breakline symbols as spaces.
+leave the indexing information and some lines that can not form a paragragh as it is, 
+do not answer any other word except the task output,
+do not echo the processed text, 
+just tell me the indexes of the breakline symbol you replaced with spaces, 
+assume the first breakline symbol has the index 0,
+and please separate the indices by comma.
+Do not answer any characters except the comma separated index numbers.
+Here is the input text:
+'''
+
     import requests
     k = read_secret('openai_token')
-    inputs = prompt_engineering + prompt
+    # inputs = debug_prompt_engineering + prompt
+    inputs = production_prompt_engineering + prompt
     tokens = len(inputs.split())
     print('tokens len:', tokens)
     r = requests.post("https://api.openai.com/v1/chat/completions",
@@ -335,14 +350,17 @@ Here is the input text:
                 # "model": "text-davinci-003",
                 "model": "gpt-3.5-turbo",
                 # "model": "gpt-4",
-                "messages": [{"role": "user", "content": inputs}],
-                "temperature": 0.6, 
-                "max_tokens": 4000 - tokens * 2
+                "messages": [
+                    {"role": "user", "content": inputs},
+                    {"role": "assistant", "content": 'Output:\n'}
+                    ],
+                "temperature": 0, 
+                "max_tokens": 4000 - int(tokens * 1.3)
             }
         )
     print(r.json())
     with open(my_path('chatgptoutputs.jsonl'), 'a', encoding='utf-8') as f:
-        f.write(r.text + '\n')
+        f.write(r.text)
     return r.json()['choices'][0]['message']['content']
     
 
