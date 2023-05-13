@@ -1,6 +1,7 @@
 from collections import namedtuple
 import itertools
 import json
+import os
 import re
 from typing import Dict, Optional, Union
 import Levenshtein
@@ -288,12 +289,20 @@ def use_proxy():
     socks.set_default_proxy(socks.SOCKS5, '127.0.0.1', 7890)
     socket.socket = socks.socksocket
 
-def read_secret(relative_path):
+def read_secret(relative_path, hint=''):
     relative_path += '.secret'
+    abs_path = my_path(relative_path)
+    if not os.path.exist(abs_path):
+        cmd = input(f'[{hint} {relative_path}] The secret file is required, your input will be saved in {abs_path}. \nNow please input:')
+        with open(abs_path, 'w', encoding='utf-8') as f:
+            f.write(cmd)
+        print(f'Your input is saved to {abs_path}, modify it if it is incorrect.')
+
     try:
-        with open(my_path(relative_path), 'r') as f:
+        with open(abs_path, 'r') as f:
             return f.read().strip()
-    except:
+    except Exception as e:
+        print(e)
         print(f'please put your token to {relative_path} in the root dir specify in WORKDIR_ABSOLUTE')
         print('current WORKDIR_ABSOLUTE:', WORKDIR_ABSOLUTE)
         raise

@@ -53,5 +53,8 @@ def process_one_file_use_chatgpt(row: DatasetDict):
 
 if __name__ == "__main__":
     dataset = load_dataset('bot-yaya/UN_PDF_SUBSET_PREPROCESSED')
-    use_proxy()
+    cmd = input('use proxy? (default settings is socks5://localhost:7890) please answer(y/N):')
+    if cmd.lower() == 'y':
+        use_proxy()
+    
     dataset.map(process_one_file_use_chatgpt)

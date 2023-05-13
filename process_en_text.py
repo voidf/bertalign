@@ -7,8 +7,55 @@ from helper import match_lineno_seg
 from helper import PAGINATION_TOKEN
 from difflib import SequenceMatcher
 # GLOBAL CONSTANTS
-INDEX_TOKEN = '...'
+# INDEX_TOKEN = '...'
 
+
+def score_by_nltk(prevline: str, nextline: str) -> int:
+    # 加入nltk的条件，太长会严重影响性能，限制前一句最多100字符
+    score = 0
+    nextline2Bjoined = nextline[:100]
+    joined = prevline[-100:] + ' ' + nextline2Bjoined
+    tokenized_by_nltk = nltk.sent_tokenize(joined)
+
+    if len(tokenized_by_nltk) == 1:
+        score += 200
+    elif len(tokenized_by_nltk) >= 2:
+        # 遍历结果，找到一个ratio和第二句差不多的
+        maxratio = 0
+        for token in reversed(tokenized_by_nltk):
+            sm = SequenceMatcher(lambda x: x==' ', token, nextline2Bjoined, autojunk=True) # 0.6->0 0.9->200
+            if sm.real_quick_ratio() < maxratio or sm.quick_ratio() < maxratio:
+                continue
+            maxratio = max(maxratio, sm.ratio())
+        score -= (maxratio - 0.6) * 666.7 # * 200 / 0.3
+        # s1, s2 = tokenized_by_nltk
+        # if s1 == prevline and s2 == nextline:
+            # score -= 200
+        # if is_likely(s1, outputs[-1]) and is_likely(s2, nextline):
+            # score -= 200
+    return score
+
+def score_simple(prevline: str, nextline: str) -> int:
+    score = 0 # 正表示删换行，负表示保留换行
+    if prevline[-1] in ('.', '?', '!', ';'): # 标点
+        score -= 44
+    if prevline[-1] == ',':
+        score += 81
+
+    score += min(60, len(prevline)) - 32 # 长度
+
+    if nextline[0].islower(): # 小写
+        score += 83
+    return score
+
+
+def score_special(prevline: str, nextline: str) -> int:
+    INF = 998244353
+    if (not nextline) or (not prevline): # 当两行中一行是空行，则拼接
+        return INF
+    if match_lineno_seg(nextline): # 避免和cat_by_lineno规则冲突
+        return -INF
+    return 0
 
 
 def extract_sentences_from_single_file(filetext: list[str]) -> str:
@@ -34,53 +81,18 @@ def extract_sentences_from_single_file(filetext: list[str]) -> str:
     flatten: list[str] = cat_by_lineno(filetext)
     outputs = [flatten[0]]
     for lineid, nextline in enumerate(flatten[1:]):
-        prevline = outputs[-1]
-        if (not nextline) or (not prevline): # 当两行中一行是空行，则拼接
-            outputs[-1] += nextline
-            # outputs.append(nextline)
-            continue
-        if match_lineno_seg(nextline): # 避免和cat_by_lineno规则冲突
-            outputs.append(nextline)
-            continue
+        # prevline = outputs[-1]
+        prevline = flatten[lineid]
 
-        score = 0 # 正表示删换行，负表示保留换行
-        if prevline[-1] in ('.', '?', '!', ';'):
-            score -= 44
-        if prevline[-1] == ',':
-            score += 81
-
-        score += min(60, len(flatten[lineid])) - 32
-
-        # 加入nltk的条件，太长会严重影响性能，限制前一句最多100字符
-        nextline2Bjoined = nextline[:100]
-        joined = outputs[-1][-100:] + ' ' + nextline2Bjoined
-        tokenized_by_nltk = nltk.sent_tokenize(joined)
-        if len(tokenized_by_nltk) == 1:
-            score += 200
-        elif len(tokenized_by_nltk) >= 2:
-            # 遍历结果，找到一个ratio和第二句差不多的
-            maxratio = 0
-            for token in reversed(tokenized_by_nltk):
-                sm = SequenceMatcher(lambda x: x==' ', token, nextline2Bjoined, autojunk=True) # 0.6->0 0.9->200
-                if sm.real_quick_ratio() < maxratio or sm.quick_ratio() < maxratio:
-                    continue
-                maxratio = max(maxratio, sm.ratio())
-            score -= (maxratio - 0.6) * 666.7 # * 200 / 0.3
-            # s1, s2 = tokenized_by_nltk
-            # if s1 == prevline and s2 == nextline:
-                # score -= 200
-            # if is_likely(s1, outputs[-1]) and is_likely(s2, nextline):
-                # score -= 200
-
-        if nextline[0].islower():
-            score += 83
-
+        score = score_special(prevline, nextline) # 特判的运行优先级要高于一般规则（否则会Runtime Error）
+        if score == 0:
+            score += score_simple(prevline, nextline) # TODO: 单元测试
+            score += score_by_nltk(prevline, nextline)
 
         if score > 0:
-            outputs[-1] += nextline
+            outputs[-1] += ' ' + nextline
         else:
             outputs.append(nextline)
-
 
     output = '\n'.join(outputs)
 
