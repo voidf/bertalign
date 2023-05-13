@@ -198,10 +198,10 @@ def debug(row: DatasetDict):
     drop_pagination_header_and_footer(row)
     for lang in LANGS:
         row[lang] = remove_duplicate_breakline(row[lang].split(PAGINATION_TOKEN))
-        # if lang != 'zh':
-        #     row[lang] = process_en_text.start(row[lang])
-        # else:
-        #     row[lang] = process_zh_text.start(row[lang])
+        if lang != 'zh':
+            row[lang] = process_en_text.start(row[lang])
+        else:
+            row[lang] = process_zh_text.start(row[lang])
     # row[''] = {
         
     # }
@@ -252,6 +252,12 @@ if __name__ == "__main__":
     debug_init()
     dataset = load_dataset("ranWang/UN_PDF_TEXT_DATA_TEST", split='randomTest')
     dataset = dataset.map(debug, num_proc=8)
+
+    # from process_en_text import extract_sentences_from_single_file
+    # text = 
+    # extract_sentences_from_single_file(text.split(PAGINATION_TOKEN))
+
+    # debug(dataset['en'][2000])
     dataset.map(dump_row)
     # print(dataset)
     dataset.save_to_disk(my_path())

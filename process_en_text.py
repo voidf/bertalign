@@ -77,7 +77,7 @@ def extract_sentences_from_single_file(filetext: list[str]) -> str:
 
 
         if score > 0:
-            outputs[-1] = joined
+            outputs[-1] += nextline
         else:
             outputs.append(nextline)
 
