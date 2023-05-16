@@ -42,11 +42,10 @@ def process_one_file_use_chatgpt(row: DatasetDict):
                 exit(0)
             except Exception as e:
                 print(e)
-                print('sleep for 10s')
-                time.sleep(10)
-
                 if retrytime == 2:
                     raise
+                print('sleep for 10s')
+                time.sleep(10)
         # Path()
         with open(my_path(f'done/gpt_en_{rec}.txt'), 'a', encoding='utf-8') as f:
             f.write(make_banner(input_batch+'\nreq: '+str(i // BATCH_STEP)+'\nBS: '+str(BATCH_STEP))+ outputs + PAGINATION_TOKEN)
